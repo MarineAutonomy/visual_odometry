@@ -1,4 +1,4 @@
-#Disparity map on mono cameras of Oak-D-S2
+# Disparity map on mono cameras of Oak-D-S2
 
 Main code is Rectification-on-host.py
 
