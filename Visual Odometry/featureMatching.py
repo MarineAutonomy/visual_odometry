@@ -1,44 +1,50 @@
 import cv2
 import numpy as np
-import cv2 as cv
-from matplotlib import pyplot as plt
-MIN_MATCH_COUNT = 10
-img1 = cv.imread('data_C0.jpeg', cv.IMREAD_GRAYSCALE)          # queryImage
-img2 = cv.imread('data_B0.jpeg', cv.IMREAD_GRAYSCALE) # trainImage
-# Initiate SIFT detector
-sift = cv.SIFT_create()
-# find the keypoints and descriptors with SIFT
-kp1, des1 = sift.detectAndCompute(img1,None)
-kp2, des2 = sift.detectAndCompute(img2,None)
-FLANN_INDEX_KDTREE = 1
-index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-search_params = dict(checks = 50)
-flann = cv.FlannBasedMatcher(index_params, search_params)
-matches = flann.knnMatch(des1,des2,k=2)
-# store all the good matches as per Lowe's ratio test.
-good = []
-for m,n in matches:
-    if m.distance < 0.7*n.distance:
-        good.append(m)
-if len(good)>MIN_MATCH_COUNT:
-    src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
-    dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
-    M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC,5.0)
-    matchesMask = mask.ravel().tolist()
-    h,w = img1.shape
-    pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
-    dst = cv.perspectiveTransform(pts,M)
-    img2 = cv.polylines(img2,[np.int32(dst)],True,255,3, cv.LINE_AA)
-else:
-    print( "Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT) )
-    matchesMask = None
-draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                   singlePointColor = None,
-                   matchesMask = matchesMask, # draw only inliers
-                   flags = 2)
-img3 = cv.drawMatches(img1,kp1,img2,kp2,good,None,**draw_params)
-im = cv2.warpPerspective(img2,M,(w*2,h*2))
-im[h:h*2,0:w] = img1
-plt.imshow(im,'gray')
-#plt.imshow(img3, 'gray')
-plt.show()
+
+images = [cv2.imread(f'./test_images/image{i}.jpeg') for i in range(1, 2)]
+grays = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in images]
+orb = cv2.ORB_create()
+bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+M_list, dx_list, dy_list = [], [], []
+kp_prev, des_prev = orb.detectAndCompute(grays[0], None)
+
+for i in range(1, len(images)):
+    kp_curr, des_curr = orb.detectAndCompute(grays[i], None)
+    matches = bf.match(des_prev, des_curr)
+    matches = sorted(matches, key=lambda x:x.distance)
+    matches = matches[:50]
+    pts_prev = np.float32([kp_prev[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    pts_curr = np.float32([kp_curr[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+    M, mask = cv2.findHomography(pts_curr, pts_prev, cv2.RANSAC)
+    dx, dy = M[0, 2], M[1, 2]
+    M_list.append(M)
+    dx_list.append(dx)
+    dy_list.append(dy)
+    kp_prev, des_prev = kp_curr, des_curr
+
+width = sum([img.shape[1] for img in images])
+height = max([img.shape[0] for img in images])
+result = np.zeros((height, width, 3), dtype=np.uint8)
+x = 0
+
+for i, img in enumerate(images):
+    if i == 0:
+        warped = img
+    else:
+        M_prev = M_list[i-1]
+        warped = cv2.warpPerspective(img, M_prev, (img.shape[1] + int(abs(dx_list[i-1])), img.shape[0] + int(abs(dy_list[i-1]))))
+    dx = M[0, 2]
+    dy = M[1, 2]
+    if dx >= 0 and dy >= 0:
+        result[int(abs(dy)):int(abs(dy))+warped.shape[0], x:x+warped.shape[1]] = warped
+    elif dx < 0 and dy >= 0:
+        result[int(abs(dy)):int(abs(dy))+warped.shape[0], x+int(abs(dx)):x+warped.shape[1]] = warped[:, -int(abs(dx)):, :]
+    elif dx >= 0 and dy < 0:
+        result[0:warped.shape[0]+int(abs(dy)), x:x+warped.shape[1]] = warped[-int(abs(dy)):, :, :]
+    else:
+        result[0:warped.shape[0]+int(abs(dy)), x+int(abs(dx)):x+warped.shape[1]+int(abs(dx))] = warped[-int(abs(dy)):, -int(abs(dx)):, :]
+    x += img.shape[1]
+
+cv2.imshow('Panorama', result)
+cv2.waitKey(0)
+cv2.destroyAllWindows()

@@ -1,5 +1,5 @@
 import cv2
-image_paths=['data_D0.jpeg','data_C0.jpeg']
+image_paths=['data_C0.jpeg','data_B0.jpeg']
 # initialized a list of images
 imgs = []
 
