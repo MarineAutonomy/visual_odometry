@@ -2,6 +2,8 @@ import cv2
 import depthai as dai
 import numpy as np
 
+dist = "1C2" # Type Image name to be saved
+
 def getFrame(queue):
   # Get frame from queue
   frame = queue.get()
@@ -68,14 +70,16 @@ if __name__ == '__main__':
  
     # Combine left and right cameras to form a stero pair
     stereo = getStereoPair(pipeline, monoLeft, monoRight)
-    
-    # Define and name output depth map
-    xoutDepth = pipeline.createXLinkOut()
-    xoutDepth.setStreamName("depth")
 
-    # Define and name output disparity map
-    xoutDisp = pipeline.createXLinkOut()
-    xoutDisp.setStreamName("disparity")
+    # Create RGB camera object
+    camRGB = getRGBCamera(pipeline)
+
+    # Set output Xlink for the camera
+    xout_rgb = pipeline.create(dai.node.XLinkOut)
+    xout_rgb.setStreamName("RGB")
+
+    # Attach RGB camera to output Xlink
+    camRGB.isp.link(xout_rgb.input)
 
     # Set output Xlink for left camera
     xoutRectifiedLeft = pipeline.createXLinkOut()
@@ -85,41 +89,26 @@ if __name__ == '__main__':
     xoutRectifiedRight = pipeline.createXLinkOut()
     xoutRectifiedRight.setStreamName("rectifiedRight")
   
-    stereo.disparity.link(xoutDisp.input)
-    stereo.depth.link(xoutDepth.input)
+    # stereo.disparity.link(xoutDisp.input)
+    # stereo.depth.link(xoutDepth.input)
     stereo.rectifiedLeft.link(xoutRectifiedLeft.input)
     stereo.rectifiedRight.link(xoutRectifiedRight.input)
 
-    with dai.Device(pipeline) as device:
+    with dai.Device(pipeline, usb2Mode=True) as device:
         # Get output queues. 
-        disparityQueue = device.getOutputQueue(name="disparity",maxSize=1,blocking=False)
-        depthQueue = device.getOutputQueue(name="depth",maxSize=1,blocking=False)
+        # disparityQueue = device.getOutputQueue(name="disparity",maxSize=1,blocking=False)
+        # depthQueue = device.getOutputQueue(name="depth",maxSize=1,blocking=False)
         rectifiedLeftQueue = device.getOutputQueue(name="rectifiedLeft",maxSize=1,blocking=False)
         rectifiedRightQueue = device.getOutputQueue(name="rectifiedRight",maxSize=1,blocking=False)
-    
-        # Calculate a multiplier for colormapping disparity map
-        disparityMultiplier = 255/stereo.initialConfig.getMaxDisparity()
+        # Get output Queue
+        rgbQueue = device.getOutputQueue(name="RGB", maxSize=1)
 
-        # Set display window name
-        cv2.namedWindow("Stereo Pair")
-        cv2.setMouseCallback("Stereo Pair", mouseCallback)
-
-        # Variable used to toggle between side by side view and one frame view. 
         sideBySide = False
 
         while True:
 
-            # Get disparity map
-            disparity = getFrame(disparityQueue)
-
-            disparity = (disparity * disparityMultiplier).astype(np.uint8)
-            disparity = cv2.applyColorMap(disparity, cv2.COLORMAP_JET)
-
-            # Get depth map
-            depth = getFrame(depthQueue)
-            # depth = (depth * depthMultiplier).astype(np.uint8)
-            # depth = cv2.applyColorMap(depth, cv2.COLORMAP_JET)
-
+            # Get camera frame
+            rgbFrame = getFrame(rgbQueue)
             # Get left frame
             leftFrame = getFrame(rectifiedLeftQueue)
             # Get right frame 
@@ -131,14 +120,17 @@ if __name__ == '__main__':
             else : 
                 # Show overlapping frames
                 imOut = np.uint8(leftFrame/2 + rightFrame/2)
-        
-            imOut = cv2.cvtColor(imOut, cv2.COLOR_GRAY2RGB)
             
-            imOut = cv2.line(imOut, (mouseX,mouseY), (1280,mouseY), (0,0,255), 2)
-            imOut = cv2.circle(imOut, (mouseX,mouseY), 2, (255,255,128), 2)
-            cv2.imshow("Stereo Pair", imOut)
-            cv2.imshow("Disparity", disparity)
-            cv2.imshow("Depth", depth)
+            # imOut = cv2.line(imOut, (mouseX,mouseY), (1280,mouseY), (0,0,255), 2)
+            # imOut = cv2.circle(imOut, (mouseX,mouseY), 2, (255,255,128), 2)
+            cv2.imshow("Left cam", leftFrame)
+            cv2.imshow("Right cam", rightFrame)
+            cv2.imshow("RBG cam", rgbFrame)
+
+            # save the image
+            cv2.imwrite(f"left {dist}.jpg", leftFrame)
+            cv2.imwrite(f"right {dist}.jpg", rightFrame)
+            cv2.imwrite(f"rgb {dist}.jpg", rgbFrame)
             
             # Check for keyboard input
             key = cv2.waitKey(1)

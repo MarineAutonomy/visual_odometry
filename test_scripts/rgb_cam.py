@@ -68,7 +68,7 @@ if __name__ == '__main__':
       # show the image
       cv2.imshow('image', sift_image)
       # save the image
-      # cv2.imwrite("table-sift.jpg", sift_image)0
+      # cv2.imwrite("table-sift.jpg", sift_image)
       # cv2.waitKey(0)
   
       # # Display output image
