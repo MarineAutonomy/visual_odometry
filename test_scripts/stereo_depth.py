@@ -90,7 +90,7 @@ if __name__ == '__main__':
     stereo.rectifiedLeft.link(xoutRectifiedLeft.input)
     stereo.rectifiedRight.link(xoutRectifiedRight.input)
 
-    with dai.Device(pipeline) as device:
+    with dai.Device(pipeline,usb2Mode=True) as device:
         # Get output queues. 
         disparityQueue = device.getOutputQueue(name="disparity",maxSize=1,blocking=False)
         depthQueue = device.getOutputQueue(name="depth",maxSize=1,blocking=False)
