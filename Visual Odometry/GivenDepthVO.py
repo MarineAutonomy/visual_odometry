@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 intrinsic = np.array([[608.76911527, 0, 331.66232379],
                       [0, 609.17361504, 235.85464047],
                       [0, 0, 1]])
-images = [cv2.imread(f'./test_images/image{i}.jpeg') for i in range(3,5)]
+images = [cv2.imread(f'./test_images/image{i}.jpeg') for i in range(1,3)]
 grays = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in images]
 orb = cv2.ORB_create()
 bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -47,6 +47,7 @@ temp2_c = np.matmul(np.linalg.inv(intrinsic),temp2)*2.5
 final = temp2_c-temp1_c
 
 print(f"You have moved {final[0,0]*3.2}ft in x-direction {final[1,0]*3.2}ft in y direction {final[2,0]*3.2}ft in z direction")
+print(M_list[0]*2.5)
 # cv2.imshow('Panorama', result)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
